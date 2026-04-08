@@ -270,6 +270,16 @@ async function buildContainerArgs(
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());
 
+  // Tenstorrent accelerator device access
+  if (fs.existsSync('/dev/tenstorrent/0')) {
+    args.push('--device', '/dev/tenstorrent/0');
+  }
+
+  // Hugepages for Tenstorrent driver
+  if (fs.existsSync('/dev/hugepages-1G')) {
+    args.push('-v', '/dev/hugepages-1G:/dev/hugepages-1G');
+  }
+
   // Run as host user so bind-mounted files are accessible.
   // Skip when running as root (uid 0), as the container's node user (uid 1000),
   // or when getuid is unavailable (native Windows without WSL).
