@@ -49,12 +49,21 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         ca-certificates \
         curl \
         git \
+        sudo \
         tini \
         unzip \
     && if [ "$INSTALL_CJK_FONTS" = "true" ]; then \
         apt-get install -y --no-install-recommends fonts-noto-cjk; \
        fi \
     && rm -rf /var/lib/apt/lists/*
+
+# Make passwd/shadow writable so the entrypoint can append host-UID rows at
+# runtime (needed when the container runs under an unmapped UID for
+# Tenstorrent device access). NOPASSWD:ALL sudo for any user — container is
+# already isolated, and tt-metal builds need sudo.
+RUN chmod 666 /etc/passwd /etc/shadow && \
+    echo 'ALL ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/all && \
+    chmod 0440 /etc/sudoers.d/all
 
 # Chromium path for agent-browser / Playwright consumers
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium

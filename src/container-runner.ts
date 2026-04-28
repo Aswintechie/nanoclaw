@@ -461,6 +461,16 @@ async function buildContainerArgs(
     args.push('-e', 'HOME=/home/node');
   }
 
+  // Tenstorrent device + hugepages (existence-gated for non-TT machines)
+  const ttDevice = '/dev/tenstorrent/0';
+  if (fs.existsSync(ttDevice)) {
+    args.push('--device', ttDevice);
+  }
+  const hugepagesPath = '/dev/hugepages-1G';
+  if (fs.existsSync(hugepagesPath)) {
+    args.push('-v', `${hugepagesPath}:${hugepagesPath}`);
+  }
+
   // Volume mounts
   for (const mount of mounts) {
     if (mount.readonly) {
@@ -477,7 +487,17 @@ async function buildContainerArgs(
   const imageTag = containerConfig.imageTag || CONTAINER_IMAGE;
   args.push(imageTag);
 
-  args.push('-c', 'exec bun run /app/src/index.ts');
+  // Prepend a UID-mapping shim so sudo and other passwd-lookup tools work
+  // when running under an unmapped host UID (needed for Tenstorrent device
+  // access). /etc/passwd is chmod 666 in the Dockerfile.
+  args.push(
+    '-c',
+    'if ! id -un 2>/dev/null; then ' +
+      'echo "agent:x:$(id -u):$(id -g)::/home/node:/bin/bash" >> /etc/passwd; ' +
+      'echo "agent:!:19999::::::" >> /etc/shadow; ' +
+      'fi; ' +
+      'exec bun run /app/src/index.ts',
+  );
 
   return args;
 }
