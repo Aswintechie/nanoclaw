@@ -134,6 +134,39 @@ write_header
 # skips re-printing the wordmark, keeping the flow visually continuous.
 printf '\n  %s%s\n\n' "$(bold 'Nano')" "$(brand_bold 'Claw')"
 
+# ─── pre-flight: root user warning (Linux) ────────────────────────────
+if [ "$(uname -s)" = "Linux" ] && [ "$(id -u)" -eq 0 ]; then
+  printf '  %s\n' \
+    "$(red 'Warning: you are running as root.')"
+  printf '  %s\n' \
+    "$(dim "Running NanoClaw as root is not recommended. It can cause permission")"
+  printf '  %s\n\n' \
+    "$(dim "issues with containers, services, and file ownership.")"
+  printf '  %s\n' \
+    "$(dim "We recommend creating a regular user and running setup from there.")"
+  printf '  %s\n\n' \
+    "$(dim "If you continue as root, some things may not work as expected.")"
+  read -r -p "  $(bold 'Continue as root anyway?') [y/N] " ROOT_ANS </dev/tty
+
+  case "${ROOT_ANS:-N}" in
+    [Yy]*)
+      ph_event setup_root_continued
+      printf '\n'
+      ;;
+    *)
+      ph_event setup_root_aborted
+      printf '\n  %s\n' "$(bold 'To set up a regular user:')"
+      printf '  %s\n' "$(dim '1. Open another terminal (keep this one for reference)')"
+      printf '  %s\n' "$(dim '2. Create a new user:          adduser nanoclaw')"
+      printf '  %s\n' "$(dim '3. Add to sudo group:          usermod -aG sudo nanoclaw')"
+      printf '  %s\n' "$(dim '4. Log out of this SSH session: exit')"
+      printf '  %s\n' "$(dim '5. Log back in as the new user: ssh your-user@your-server')"
+      printf '  %s\n\n' "$(dim '6. Re-run setup:               bash nanoclaw.sh')"
+      exit 1
+      ;;
+  esac
+fi
+
 # ─── pre-flight: Homebrew on macOS ─────────────────────────────────────
 # setup/install-node.sh and setup/install-docker.sh both require `brew` on
 # macOS. On a factory Mac there's no brew, and those helpers would fail
