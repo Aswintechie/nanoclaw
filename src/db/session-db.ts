@@ -180,6 +180,19 @@ export function getProcessingClaims(outDb: Database.Database): ProcessingClaim[]
     .all() as ProcessingClaim[];
 }
 
+/**
+ * Delete orphan 'processing' rows. Called by the host after killing a
+ * container so the leftover claim doesn't trip claim-stuck on the next sweep
+ * tick (which would kill the freshly respawned container before its
+ * agent-runner can run its own startup cleanup).
+ *
+ * Safe because the host only writes to outbound.db when no container is
+ * running (we just killed it). Returns the number of rows deleted.
+ */
+export function deleteOrphanProcessingClaims(outDb: Database.Database): number {
+  return outDb.prepare("DELETE FROM processing_ack WHERE status = 'processing'").run().changes;
+}
+
 export interface ContainerState {
   current_tool: string | null;
   tool_declared_timeout_ms: number | null;
