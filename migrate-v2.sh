@@ -420,15 +420,24 @@ else
   log "Anthropic credential: skipped (no OneCLI)"
 fi
 
-# 3c. Docker check
+# 3c. Docker — install if missing
 if command -v docker >/dev/null 2>&1; then
   DOCKER_V=$(docker --version 2>/dev/null | head -1)
   step_ok "Docker available $(dim "($DOCKER_V)")"
   log "Docker: $DOCKER_V"
 else
-  step_fail "Docker not found"
-  step_info "$(dim "Install Docker: bash setup/install-docker.sh")"
-  log "Docker: not found"
+  step_info "Installing Docker…"
+  DOCKER_LOG="$STEPS_DIR/3c-docker.log"
+  if bash setup/install-docker.sh > "$DOCKER_LOG" 2>&1; then
+    hash -r 2>/dev/null || true
+    step_ok "Docker installed"
+    STEP_RESULTS["3c-docker"]="success"
+    log "Docker: installed"
+  else
+    step_fail "Docker install failed $(dim "(see $DOCKER_LOG)")"
+    STEP_RESULTS["3c-docker"]="failed"
+    log "Docker: FAILED"
+  fi
 fi
 
 # 3d. Copy container skills from v1 that v2 doesn't have
@@ -464,16 +473,20 @@ if command -v docker >/dev/null 2>&1; then
   BUILD_LOG="$STEPS_DIR/3e-container-build.log"
   if bash container/build.sh > "$BUILD_LOG" 2>&1; then
     step_ok "Container image built"
+    STEP_RESULTS["3e-build"]="success"
     log "Container build: success"
   else
     step_fail "Container build failed"
+    STEP_RESULTS["3e-build"]="failed"
     tail -10 "$BUILD_LOG" 2>/dev/null | while IFS= read -r line; do
       echo "  $(dim "$line")"
     done
     log "Container build: FAILED (see $BUILD_LOG)"
   fi
 else
-  step_skip "Container build $(dim "(no Docker)")"
+  step_fail "Docker not available — cannot build container"
+  STEP_RESULTS["3e-build"]="failed"
+  log "Container build: skipped (no Docker)"
 fi
 
 echo
