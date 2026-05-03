@@ -234,18 +234,6 @@ function createPreCompactHook(assistantName?: string): HookCallback {
 const CLAUDE_CODE_AUTO_COMPACT_WINDOW = process.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW || '850000';
 
 /**
- * Force Claude Code to treat the model's context as 1M tokens. Without these,
- * the AUTO_COMPACT_WINDOW above gets silently capped to whatever Claude Code's
- * model registry reports (~200k for Opus 4.7), so a 850k window still
- * triggers compaction at ~168k. The binary's source-resolution logic only
- * honors MAX_CONTEXT_TOKENS when DISABLE_COMPACT is also truthy — both must
- * be set together. Confirmed by reverse-engineering Claude Code 2.1.116's
- * `ZZ()` function (the model-context resolver).
- */
-const CLAUDE_CODE_MAX_CONTEXT_TOKENS = process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS || '1000000';
-const DISABLE_COMPACT = process.env.DISABLE_COMPACT || 'true';
-
-/**
  * Stale-session detection. Matches Claude Code's error text when a
  * resumed session can't be found — missing transcript .jsonl, unknown
  * session ID, etc.
@@ -267,8 +255,6 @@ export class ClaudeProvider implements AgentProvider {
     this.env = {
       ...(options.env ?? {}),
       CLAUDE_CODE_AUTO_COMPACT_WINDOW,
-      CLAUDE_CODE_MAX_CONTEXT_TOKENS,
-      DISABLE_COMPACT,
     };
   }
 
