@@ -23,6 +23,13 @@ registerProviderContainerConfig('claude', () => {
   if (dotenv.ANTHROPIC_BASE_URL) {
     env.ANTHROPIC_BASE_URL = dotenv.ANTHROPIC_BASE_URL;
     env.ANTHROPIC_AUTH_TOKEN = 'placeholder';
+    // When the endpoint lives on the docker bridge (e.g. our local LiteLLM
+    // rewrite proxy), NO_PROXY must bypass OneCLI's HTTPS_PROXY for that hop
+    // so the SDK talks to the proxy directly. The proxy handles auth itself.
+    if (dotenv.ANTHROPIC_BASE_URL.includes('host.docker.internal')) {
+      env.NO_PROXY = 'host.docker.internal,localhost,127.0.0.1';
+      env.no_proxy = 'host.docker.internal,localhost,127.0.0.1';
+    }
   }
   return { env };
 });
