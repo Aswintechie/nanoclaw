@@ -77,7 +77,6 @@ const server = http.createServer((req, res) => {
     headers['accept-encoding'] = 'identity';
     headers['host'] = UPSTREAM_HOST;
     headers['authorization'] = `Bearer ${API_KEY}`;
-    headers['anthropic-beta'] = 'context-1m-2025-08-07';
     headers['content-length'] = String(body.length);
 
     const upReq = https.request({
