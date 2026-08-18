@@ -23,7 +23,7 @@ import {
   ONECLI_URL,
   TIMEZONE,
 } from './config.js';
-import { materializeContainerJson } from './container-config.js';
+import { CONTAINER_PLUGINS_DIR, materializeContainerJson } from './container-config.js';
 import { getContainerConfig } from './db/container-configs.js';
 import { updateContainerConfigScalars } from './db/container-configs.js';
 import { CONTAINER_RUNTIME_BIN, hostGatewayArgs, readonlyMountArgs, stopContainer } from './container-runtime.js';
@@ -56,7 +56,7 @@ import type { AgentGroup, Session } from './types.js';
 const onecli = new OneCLI({ url: ONECLI_URL, apiKey: ONECLI_API_KEY });
 
 /** Active containers tracked by session ID. */
-const activeContainers = new Map<string, { process: ChildProcess; containerName: string }>();
+const activeContainers = new Map<string, { process: ChildProcess; containerName: string; startedAtMs: number }>();
 
 /**
  * In-flight wake promises, keyed by session id. Deduplicates concurrent
@@ -74,6 +74,10 @@ export function getActiveContainerCount(): number {
 
 export function isContainerRunning(sessionId: string): boolean {
   return activeContainers.has(sessionId);
+}
+
+export function getContainerStartedAtMs(sessionId: string): number | undefined {
+  return activeContainers.get(sessionId)?.startedAtMs;
 }
 
 /**
@@ -169,7 +173,7 @@ async function spawnContainer(session: Session): Promise<void> {
 
   const container = spawn(CONTAINER_RUNTIME_BIN, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
-  activeContainers.set(session.id, { process: container, containerName });
+  activeContainers.set(session.id, { process: container, containerName, startedAtMs: Date.now() });
   markContainerRunning(session.id);
 
   // Log stderr. A container that dies at boot (unknown provider, missing
@@ -328,6 +332,12 @@ export function buildMounts(
   if (fs.existsSync(containerJsonPath)) {
     mounts.push({ hostPath: containerJsonPath, containerPath: '/workspace/agent/container.json', readonly: true });
   }
+
+  // Stamped plugin content is immutable at runtime (the Agent Plugins
+  // contract: writes go to plugin-data/, which stays RW via the group mount).
+  // Same nested-RO pattern as container.json; initGroupFilesystem creates the
+  // dir before mounts are built, so the mount is unconditional.
+  mounts.push({ hostPath: path.join(groupDir, 'plugins'), containerPath: CONTAINER_PLUGINS_DIR, readonly: true });
 
   // Composer-managed CLAUDE.md artifacts — nested RO mounts. These are
   // regenerated from the shared base + fragments on every spawn; any
