@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { initTestSessionDb, closeSessionDb, getInboundDb } from './db/connection.js';
+import { initTestSessionDb, closeSessionDb, getInboundDb } from './mailbox/sqlite/connection.js';
 import { getPendingMessages } from './db/messages-in.js';
 import {
   formatMessages,
@@ -92,6 +92,25 @@ describe('formatter rendering', () => {
       `<cross-session-context from="#Pixel room" sender="Gavriel" time="${expectedTime}">hey what's up</cross-session-context>`,
     );
     // Never rendered as an addressable <message> block.
+    expect(result).not.toContain('<message');
+  });
+
+  it('renders channel-timeline backfill rows as <channel-history> (group-surface prelude)', () => {
+    insertMessage(
+      'bf-ch-1',
+      'chat',
+      {
+        text: 'earlier in the channel',
+        sender: 'Gavriel',
+        senderId: 'slack:U1',
+        echo: { surface: 'channel-timeline', label: 'this channel, just before this conversation' },
+      },
+      { trigger: 0, channelType: 'session-echo' },
+    );
+
+    const result = formatMessages(getPendingMessages());
+    expect(result).toContain('<channel-history sender="Gavriel"');
+    expect(result).toContain('earlier in the channel</channel-history>');
     expect(result).not.toContain('<message');
   });
 
