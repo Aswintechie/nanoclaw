@@ -110,7 +110,17 @@ const REGISTRY_STEP = 'pnpm exec tsx setup/index.ts --step registry';
 /** `setup/registry-login.sh`'s "nothing was signed in, and that is fine" code. */
 const LOGIN_EXIT_SKIPPED = 2;
 
-type ChannelChoice = 'telegram' | 'discord' | 'whatsapp' | 'signal' | 'teams' | 'slack' | 'imessage' | 'other' | 'skip';
+type ChannelChoice =
+  | 'telegram'
+  | 'discord'
+  | 'whatsapp'
+  | 'signal'
+  | 'teams'
+  | 'slack'
+  | 'imessage'
+  | 'dial'
+  | 'other'
+  | 'skip';
 
 async function main(): Promise<void> {
   // Make sure ~/.local/bin is on PATH for every child process we spawn.
@@ -698,6 +708,8 @@ async function main(): Promise<void> {
         result = await runChannelSkillWithPreStep('slack', displayName!, { offerBack: true });
       } else if (channelChoice === 'imessage') {
         result = await runChannelSkillWithPreStep('imessage', displayName!, { offerBack: true });
+      } else if (channelChoice === 'dial') {
+        result = await runChannelSkillWithPreStep('dial', displayName!, { offerBack: true });
       } else if (channelChoice === 'other') {
         result = await askOtherChannelName();
       } else {
@@ -839,6 +851,8 @@ function channelDmLabel(choice: ChannelChoice): string | null {
       return 'iMessage';
     case 'slack':
       return 'Slack DMs';
+    case 'dial':
+      return 'phone';
     default:
       return null;
   }
@@ -1874,6 +1888,7 @@ async function askChannelChoice(): Promise<ChannelChoice> {
         { value: 'telegram', label: 'Yes, connect Telegram' },
         { value: 'discord', label: 'Yes, connect Discord' },
         { value: 'whatsapp', label: 'Yes, connect WhatsApp', hint: 'best with a dedicated number' },
+        { value: 'dial', label: 'Yes, connect Dial', hint: 'a dedicated phone number for your agent — place calls, SMS — worldwide' },
         {
           value: 'signal',
           label: 'Yes, connect Signal',

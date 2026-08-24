@@ -747,7 +747,9 @@ export function composeSessionSpec(input: ComposeSessionSpecInput): SessionSpec 
       pidsLimit: parsePidsLimit(CONTAINER_PIDS_LIMIT),
       shmSizeMb: SHM_SIZE_MB,
     },
-    runtimeTier: 'container',
+    // The group's configured tier; the driver refuses one it cannot realize
+    // (validateSpec, against capabilities().isolationTiers).
+    runtimeTier: containerConfig.runtimeTier ?? 'container',
     runAs,
     stopGraceSeconds: STOP_GRACE_SECONDS,
   };
