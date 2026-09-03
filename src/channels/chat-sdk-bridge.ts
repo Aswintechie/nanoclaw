@@ -824,7 +824,26 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       }
 
       if (content.operation === 'reaction' && content.messageId && content.emoji) {
-        await adapter.addReaction(tid, content.messageId as string, content.emoji as string);
+        try {
+          await adapter.addReaction(tid, content.messageId as string, content.emoji as string);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          // Reactions are best-effort acks; if the target message vanished
+          // (deleted between read and react) or already carries our emoji,
+          // don't retry. Slack counts retry storms on our webhook as delivery
+          // failures and silently pauses inbound events to the whole app for
+          // ~7 hours. `no_reaction` is the mirror error for removeReaction.
+          if (msg.includes('message_not_found') || msg.includes('already_reacted') || msg.includes('no_reaction')) {
+            log.info('Reaction skipped — target message unavailable', {
+              platformId,
+              tid,
+              emoji: content.emoji,
+              err: msg,
+            });
+            return;
+          }
+          throw err;
+        }
         return;
       }
 
