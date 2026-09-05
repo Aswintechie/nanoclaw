@@ -824,8 +824,14 @@ export function createChatSdkBridge(config: ChatSdkBridgeConfig): ChannelAdapter
       }
 
       if (content.operation === 'reaction' && content.messageId && content.emoji) {
+        // Router composes inbound messages_in.id as `<platform-native-id>:<agent-group-id>`
+        // for cross-session uniqueness (see messageIdForAgent in router.ts).
+        // Slack/Discord/Telegram reactions.add wants the raw platform id
+        // alone — strip the trailing `:ag-…` suffix before handing to the
+        // adapter. Without this every reaction 400s with message_not_found.
+        const platformMsgId = (content.messageId as string).replace(/:ag-[A-Za-z0-9._-]+$/, '');
         try {
-          await adapter.addReaction(tid, content.messageId as string, content.emoji as string);
+          await adapter.addReaction(tid, platformMsgId, content.emoji as string);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           // Reactions are best-effort acks; if the target message vanished
