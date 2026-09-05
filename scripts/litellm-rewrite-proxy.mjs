@@ -33,10 +33,22 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const MODEL_RE = /"model"\s*:\s*"(claude-[a-z0-9.-]+)"/g;
+// LiteLLM requires provider-prefixed model names (anthropic/, azure/, gemini/, tenstorrent/).
+// Claude Code CLI strips its own `anthropic/` prefix locally before storing model names
+// in the session jsonl; on resume it sends the bare name and LiteLLM 400s. Extend the
+// same restoration to `gpt-*` (azure) and `gemini-*` (gemini) as a defense-in-depth in
+// case Claude Code CLI ever normalizes those on the fly too.
+const PREFIX_BY_FAMILY = [
+  { re: /"model"\s*:\s*"(claude-[a-z0-9.-]+)"/g, prefix: 'anthropic/' },
+  { re: /"model"\s*:\s*"(gpt-[a-z0-9.-]+)"/g, prefix: 'azure/' },
+  { re: /"model"\s*:\s*"(gemini-[a-z0-9.-]+)"/g, prefix: 'gemini/' },
+];
 
 function prefixModel(s) {
-  return s.replace(MODEL_RE, (_m, name) => `"model":"anthropic/${name}"`);
+  for (const { re, prefix } of PREFIX_BY_FAMILY) {
+    s = s.replace(re, (_m, name) => `"model":"${prefix}${name}"`);
+  }
+  return s;
 }
 
 // Streaming rewriter: keeps a small tail so the pattern isn't split by a chunk boundary.
