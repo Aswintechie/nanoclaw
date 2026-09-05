@@ -139,6 +139,32 @@ export async function runPollLoop(config: PollLoopConfig): Promise<void> {
     const ids = messages.map((m) => m.id);
     markProcessing(ids);
 
+    // Auto :eyes: ack — every fresh user chat/chat-sdk message gets a visible
+    // "seen" reaction before we even start thinking. Duplicate/deleted-message
+    // errors on the wire are swallowed by chat-sdk-bridge's reaction try/catch
+    // so a repeated ack (or a message deleted between routing and reaction)
+    // doesn't blow up delivery. Skip: system rows, session echoes, on_wake
+    // wake-up messages (self-injected), rows missing routing metadata.
+    for (const msg of messages) {
+      if (msg.kind !== 'chat' && msg.kind !== 'chat-sdk') continue;
+      if (isSessionEcho(msg)) continue;
+      if (msg.on_wake === 1) continue;
+      if (!msg.platform_id || !msg.channel_type) continue;
+      try {
+        await writeMessageOut({
+          id: generateId(),
+          kind: 'chat',
+          platform_id: msg.platform_id,
+          channel_type: msg.channel_type,
+          thread_id: msg.thread_id,
+          content: JSON.stringify({ operation: 'reaction', messageId: msg.id, emoji: 'eyes' }),
+        });
+      } catch (err) {
+        // Best-effort ack — don't let a failed queue-write block real processing.
+        log(`auto-reaction queue failed for #${msg.seq ?? '?'}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
     const routing = extractRouting(messages);
 
     // Command handling: the host router gates filtered and unauthorized
